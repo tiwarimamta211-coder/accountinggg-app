@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>हिसाब — Accounting App</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600;700&family=Noto+Sans+Devanagari:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0f14;
+    --surface: #161a23;
+    --card: #1e2330;
+    --border: #2a3040;
+    --accent: #00d4aa;
+    --accent2: #ff6b6b;
+    --accent3: #ffd166;
+    --text: #e8edf5;
+    --muted: #6b7894;
+    --income: #00d4aa;
+    --expense: #ff6b6b;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Sora', 'Noto Sans Devanagari', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,212,170,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,170,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .app { position: relative; z-index: 1; display: flex; min-height: 100vh; }
+
+  /* Sidebar */
+  .sidebar {
+    width: 230px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 28px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+  }
+
+  .logo {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--accent);
+    padding: 0 12px 24px;
+    letter-spacing: -0.5px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 8px;
+  }
+  .logo span { color: var(--text); }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s;
+    border: 1px solid transparent;
+  }
+  .nav-item:hover { color: var(--text); background: var(--card); }
+  .nav-item.active {
+    color: var(--accent);
+    background: rgba(0,212,170,0.08);
+    border-color: rgba(0,212,170,0.2);
+  }
+  .nav-icon { font-size: 18px; }
+
+  /* Main */
+  .main {
+    margin-left: 230px;
+    flex: 1;
+    padding: 32px;
+    max-width: calc(100vw - 230px);
+  }
+
+  .page { display: none; }
+  .page.active { display: block; }
+
+  .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 28px;
+  }
+  .page-title { font-size: 26px; font-weight: 700; letter-spacing: -0.5px; }
+  .page-sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
+
+  /* Stats */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+
+  .stat-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 22px;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s, border-color 0.2s;
+  }
+  .stat-card:hover { transform: translateY(-2px); border-color: var(--accent); }
+  .stat-card::after {
+    content: '';
+    position: absolute;
+    top: 0; right: 0;
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    opacity: 0.06;
+  }
+  .stat-card.income::after { background: var(--income); }
+  .stat-card.expense::after { background: var(--expense); }
+  .stat-card.balance::after { background: var(--accent3); }
+
+  .stat-label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+  .stat-value { font-size: 28px; font-weight: 700; letter-spacing: -1px; }
+  .stat-value.income { color: var(--income); }
+  .stat-value.expense { color: var(--expense); }
+  .stat-value.balance { color: var(--accent3); }
+  .stat-icon { font-size: 28px; margin-bottom: 12px; }
+
+  /* Bar Chart */
+  .chart-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 28px;
+  }
+  .chart-title { font-size: 15px; font-weight: 600; margin-bottom: 20px; color: var(--muted); }
+  .bars { display: flex; align-items: flex-end; gap: 12px; height: 120px; }
+  .bar-group { display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 1; }
+  .bar-wrap { display: flex; gap: 4px; align-items: flex-end; height: 100px; }
+  .bar {
+    width: 18px;
+    border-radius: 4px 4px 0 0;
+    transition: height 0.8s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  .bar.inc { background: var(--income); opacity: 0.85; }
+  .bar.exp { background: var(--expense); opacity: 0.85; }
+  .bar-label { font-size: 11px; color: var(--muted); }
+
+  /* Table */
+  .section-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--muted);
+    margin-bottom: 14px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .txn-list { display: flex; flex-direction: column; gap: 8px; }
+  .txn-item {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    transition: border-color 0.2s;
+  }
+  .txn-item:hover { border-color: var(--accent); }
+  .txn-icon {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+  .txn-icon.income { background: rgba(0,212,170,0.12); }
+  .txn-icon.expense { background: rgba(255,107,107,0.12); }
+  .txn-info { flex: 1; }
+  .txn-name { font-size: 14px; font-weight: 600; }
+  .txn-date { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .txn-cat {
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 20px;
+    background: var(--surface);
+    color: var(--muted);
+    border: 1px solid var(--border);
+  }
+  .txn-amount { font-size: 16px; font-weight: 700; }
+  .txn-amount.income { color: var(--income); }
+  .txn-amount.expense { color: var(--expense); }
+
+  /* Form */
+  .form-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px;
+    max-width: 540px;
+  }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  .form-group.full { grid-column: 1 / -1; }
+  .form-label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; }
+  .form-input, .form-select {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 11px 14px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .form-input:focus, .form-select:focus { border-color: var(--accent); }
+  .form-select option { background: var(--surface); }
+
+  .type-toggle { display: flex; gap: 8px; }
+  .type-btn {
+    flex: 1;
+    padding: 10px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: inherit;
+    transition: all 0.2s;
+  }
+  .type-btn.income.active { background: rgba(0,212,170,0.15); border-color: var(--income); color: var(--income); }
+  .type-btn.expense.active { background: rgba(255,107,107,0.15); border-color: var(--expense); color: var(--expense); }
+
+  .btn-submit {
+    width: 100%;
+    padding: 13px;
+    background: var(--accent);
+    color: #0d0f14;
+    border: none;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+    margin-top: 8px;
+    transition: opacity 0.2s, transform 0.1s;
+  }
+  .btn-submit:hover { opacity: 0.9; transform: translateY(-1px); }
+  .btn-submit:active { transform: translateY(0); }
+
+  /* Invoice */
+  .invoice-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px;
+  }
+  .invoice-header { display: flex; justify-content: space-between; margin-bottom: 24px; }
+  .invoice-title { font-size: 32px; font-weight: 700; color: var(--accent); letter-spacing: -1px; }
+  .invoice-no { font-size: 13px; color: var(--muted); margin-top: 4px; }
+  .invoice-from { font-size: 13px; line-height: 1.6; color: var(--muted); }
+  .invoice-from strong { color: var(--text); font-size: 15px; display: block; margin-bottom: 4px; }
+  .invoice-table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 14px; }
+  .invoice-table th {
+    background: var(--surface);
+    padding: 10px 14px;
+    text-align: left;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+  }
+  .invoice-table td { padding: 12px 14px; border-bottom: 1px solid var(--border); }
+  .invoice-total {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+    margin-top: 16px;
+  }
+  .invoice-total-row { display: flex; gap: 40px; font-size: 13px; color: var(--muted); }
+  .invoice-total-row span:last-child { color: var(--text); min-width: 80px; text-align: right; }
+  .invoice-grand { font-size: 20px; font-weight: 700; color: var(--accent); }
+
+  .inv-form { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 20px; }
+  .inv-form .full { grid-column: 1/-1; }
+
+  .btn-add-item {
+    background: transparent;
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    padding: 10px;
+    color: var(--muted);
+    font-family: inherit;
+    font-size: 13px;
+    cursor: pointer;
+    width: 100%;
+    transition: all 0.2s;
+  }
+  .btn-add-item:hover { border-color: var(--accent); color: var(--accent); }
+
+  .toast {
+    position: fixed;
+    bottom: 30px; right: 30px;
+    background: var(--accent);
+    color: #0d0f14;
+    padding: 12px 20px;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 14px;
+    z-index: 999;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.3s;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+
+  /* Report */
+  .report-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .report-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+  }
+  .report-card-title { font-size: 13px; color: var(--muted); margin-bottom: 14px; text-transform: uppercase; letter-spacing: 1px; }
+  .cat-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .cat-row:last-child { border: none; }
+  .cat-bar-wrap { width: 100%; height: 4px; background: var(--border); border-radius: 2px; margin-top: 4px; }
+  .cat-bar-fill { height: 100%; border-radius: 2px; background: var(--accent); }
+
+  @media (max-width: 768px) {
+    .sidebar { width: 60px; padding: 16px 8px; }
+    .logo { font-size: 18px; padding: 0 4px 16px; }
+    .nav-item span:last-child { display: none; }
+    .main { margin-left: 60px; padding: 20px 16px; }
+    .stats-grid { grid-template-columns: 1fr; }
+    .form-grid { grid-template-columns: 1fr; }
+    .report-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="logo">हिसाब<span>.</span></div>
+    <div class="nav-item active" onclick="showPage('dashboard', this)">
+      <span class="nav-icon">📊</span><span>Dashboard</span>
+    </div>
+    <div class="nav-item" onclick="showPage('transactions', this)">
+      <span class="nav-icon">💳</span><span>Transactions</span>
+    </div>
+    <div class="nav-item" onclick="showPage('add', this)">
+      <span class="nav-icon">➕</span><span>Add Entry</span>
+    </div>
+    <div class="nav-item" onclick="showPage('invoice', this)">
+      <span class="nav-icon">🧾</span><span>Invoice</span>
+    </div>
+    <div class="nav-item" onclick="showPage('report', this)">
+      <span class="nav-icon">📈</span><span>Report</span>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+
+    <!-- Dashboard -->
+    <div class="page active" id="dashboard">
+      <div class="page-header">
+        <div>
+          <div class="page-title">नमस्ते! 👋</div>
+          <div class="page-sub">आपका financial overview</div>
+        </div>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card income">
+          <div class="stat-icon">💚</div>
+          <div class="stat-label">कुल आमदनी</div>
+          <div class="stat-value income" id="total-income">₹0</div>
+        </div>
+        <div class="stat-card expense">
+          <div class="stat-icon">🔴</div>
+          <div class="stat-label">कुल खर्च</div>
+          <div class="stat-value expense" id="total-expense">₹0</div>
+        </div>
+        <div class="stat-card balance">
+          <div class="stat-icon">⚖️</div>
+          <div class="stat-label">बैलेंस</div>
+          <div class="stat-value balance" id="balance">₹0</div>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-title">📅 Monthly Overview</div>
+        <div class="bars" id="chart-bars"></div>
+      </div>
+
+      <div class="section-title">हाल की Transactions</div>
+      <div class="txn-list" id="recent-txns"></div>
+    </div>
+
+    <!-- Transactions -->
+    <div class="page" id="transactions">
+      <div class="page-header">
+        <div>
+          <div class="page-title">सभी Transactions</div>
+          <div class="page-sub">पूरा हिसाब-किताब</div>
+        </div>
+      </div>
+      <div class="txn-list" id="all-txns"></div>
+    </div>
+
+    <!-- Add Entry -->
+    <div class="page" id="add">
+      <div class="page-header">
+        <div>
+          <div class="page-title">नई Entry जोड़ें</div>
+          <div class="page-sub">Income या Expense record करें</div>
+        </div>
+      </div>
+      <div class="form-card">
+        <div class="form-grid">
+          <div class="form-group full">
+            <div class="form-label">Type</div>
+            <div class="type-toggle">
+              <button class="type-btn income active" id="btn-income" onclick="setType('income')">✅ आमदनी (Income)</button>
+              <button class="type-btn expense" id="btn-expense" onclick="setType('expense')">❌ खर्च (Expense)</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <div class="form-label">विवरण (Description)</div>
+            <input class="form-input" id="txn-desc" placeholder="जैसे: Client Payment" />
+          </div>
+          <div class="form-group">
+            <div class="form-label">राशि (Amount ₹)</div>
+            <input class="form-input" id="txn-amount" type="number" placeholder="0" />
+          </div>
+          <div class="form-group">
+            <div class="form-label">Category</div>
+            <select class="form-select" id="txn-cat">
+              <option>Sales</option>
+              <option>Service</option>
+              <option>Salary</option>
+              <option>Rent</option>
+              <option>Utilities</option>
+              <option>Purchase</option>
+              <option>Marketing</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <div class="form-label">Date</div>
+            <input class="form-input" id="txn-date" type="date" />
+          </div>
+          <div class="form-group full">
+            <button class="btn-submit" onclick="addTransaction()">Entry जोड़ें ✓</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Invoice -->
+    <div class="page" id="invoice">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Invoice बनाएं</div>
+          <div class="page-sub">Professional GST Invoice</div>
+        </div>
+      </div>
+
+      <div class="invoice-card">
+        <div class="inv-form">
+          <div class="form-group">
+            <div class="form-label">आपका नाम / Business</div>
+            <input class="form-input" id="inv-from" placeholder="Your Business Name" />
+          </div>
+          <div class="form-group">
+            <div class="form-label">Client का नाम</div>
+            <input class="form-input" id="inv-to" placeholder="Client Name" />
+          </div>
+          <div class="form-group">
+            <div class="form-label">Invoice No.</div>
+            <input class="form-input" id="inv-no" value="INV-001" />
+          </div>
+          <div class="form-group">
+            <div class="form-label">Date</div>
+            <input class="form-input" id="inv-date" type="date" />
+          </div>
+        </div>
+
+        <div class="section-title">Items</div>
+        <div id="inv-items-list"></div>
+        <button class="btn-add-item" onclick="addInvItem()">+ Item जोड़ें</button>
+
+        <div class="invoice-total" style="margin-top:20px;">
+          <div class="invoice-total-row"><span>Subtotal</span><span id="inv-sub">₹0</span></div>
+          <div class="invoice-total-row"><span>GST (18%)</span><span id="inv-gst">₹0</span></div>
+          <div class="invoice-total-row invoice-grand"><span>Total</span><span id="inv-total">₹0</span></div>
+        </div>
+
+        <button class="btn-submit" onclick="printInvoice()" style="margin-top:20px;">🖨️ Invoice Print / Save करें</button>
+      </div>
+    </div>
+
+    <!-- Report -->
+    <div class="page" id="report">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Report</div>
+          <div class="page-sub">Category-wise analysis</div>
+        </div>
+      </div>
+      <div class="report-grid">
+        <div class="report-card">
+          <div class="report-card-title">💚 Income by Category</div>
+          <div id="income-cats"></div>
+        </div>
+        <div class="report-card">
+          <div class="report-card-title">🔴 Expense by Category</div>
+          <div id="expense-cats"></div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let transactions = JSON.parse(localStorage.getItem('hisaab_txns') || '[]');
+let currentType = 'income';
+
+// Sample data if empty
+if (transactions.length === 0) {
+  const months = ['2024-01','2024-02','2024-03'];
+  const samples = [
+    {id:1,type:'income',desc:'Client Payment - ABC Co.',amount:45000,cat:'Sales',date:'2024-03-15'},
+    {id:2,type:'expense',desc:'Office Rent',amount:12000,cat:'Rent',date:'2024-03-10'},
+    {id:3,type:'income',desc:'Consulting Fee',amount:25000,cat:'Service',date:'2024-03-08'},
+    {id:4,type:'expense',desc:'Electricity Bill',amount:3500,cat:'Utilities',date:'2024-03-05'},
+    {id:5,type:'income',desc:'Product Sales',amount:18000,cat:'Sales',date:'2024-02-28'},
+    {id:6,type:'expense',desc:'Staff Salary',amount:30000,cat:'Salary',date:'2024-02-25'},
+  ];
+  transactions = samples;
+  save();
+}
+
+function save() { localStorage.setItem('hisaab_txns', JSON.stringify(transactions)); }
+
+function fmt(n) {
+  return '₹' + Number(n).toLocaleString('en-IN');
+}
+
+function showPage(name, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById(name).classList.add('active');
+  el.classList.add('active');
+  renderAll();
+}
+
+function setType(t) {
+  currentType = t;
+  document.getElementById('btn-income').classList.toggle('active', t === 'income');
+  document.getElementById('btn-expense').classList.toggle('active', t === 'expense');
+}
+
+function addTransaction() {
+  const desc = document.getElementById('txn-desc').value.trim();
+  const amount = parseFloat(document.getElementById('txn-amount').value);
+  const cat = document.getElementById('txn-cat').value;
+  const date = document.getElementById('txn-date').value || new Date().toISOString().split('T')[0];
+  if (!desc || !amount) { showToast('❗ सभी fields भरें!'); return; }
+  transactions.unshift({ id: Date.now(), type: currentType, desc, amount, cat, date });
+  save();
+  document.getElementById('txn-desc').value = '';
+  document.getElementById('txn-amount').value = '';
+  showToast('✅ Entry जोड़ी गई!');
+  renderAll();
+}
+
+function renderAll() { renderStats(); renderRecent(); renderAll_Txns(); renderChart(); renderReport(); }
+
+function renderStats() {
+  const income = transactions.filter(t=>t.type==='income').reduce((a,t)=>a+t.amount,0);
+  const expense = transactions.filter(t=>t.type==='expense').reduce((a,t)=>a+t.amount,0);
+  document.getElementById('total-income').textContent = fmt(income);
+  document.getElementById('total-expense').textContent = fmt(expense);
+  const bal = document.getElementById('balance');
+  bal.textContent = fmt(income - expense);
+  bal.className = 'stat-value ' + (income >= expense ? 'balance' : 'expense');
+}
+
+function txnHTML(t) {
+  const icons = {Sales:'🛒',Service:'⚙️',Salary:'👤',Rent:'🏠',Utilities:'⚡',Purchase:'📦',Marketing:'📢',Other:'📁'};
+  return `<div class="txn-item">
+    <div class="txn-icon ${t.type}">${icons[t.cat]||'📁'}</div>
+    <div class="txn-info">
+      <div class="txn-name">${t.desc}</div>
+      <div class="txn-date">${t.date}</div>
+    </div>
+    <span class="txn-cat">${t.cat}</span>
+    <div class="txn-amount ${t.type}">${t.type==='income'?'+':'-'}${fmt(t.amount)}</div>
+  </div>`;
+}
+
+function renderRecent() {
+  const el = document.getElementById('recent-txns');
+  const recent = transactions.slice(0,5);
+  el.innerHTML = recent.length ? recent.map(txnHTML).join('') : '<div style="color:var(--muted);padding:20px;text-align:center;">कोई transaction नहीं</div>';
+}
+
+function renderAll_Txns() {
+  const el = document.getElementById('all-txns');
+  el.innerHTML = transactions.length ? transactions.map(txnHTML).join('') : '<div style="color:var(--muted);padding:20px;text-align:center;">कोई transaction नहीं</div>';
+}
+
+function renderChart() {
+  const el = document.getElementById('chart-bars');
+  const months = ['Jan','Feb','Mar','Apr','May','Jun'];
+  const now = new Date();
+  const data = months.map((m,i) => {
+    const mo = String(now.getMonth() - 5 + i + 1).padStart(2,'0');
+    const yr = now.getFullYear();
+    const key = `${yr}-${mo}`;
+    const inc = transactions.filter(t=>t.type==='income'&&t.date.startsWith(key)).reduce((a,t)=>a+t.amount,0);
+    const exp = transactions.filter(t=>t.type==='expense'&&t.date.startsWith(key)).reduce((a,t)=>a+t.amount,0);
+    return {m, inc, exp};
+  });
+  const max = Math.max(...data.flatMap(d=>[d.inc,d.exp]), 1);
+  el.innerHTML = data.map(d => `
+    <div class="bar-group">
+      <div class="bar-wrap">
+        <div class="bar inc" style="height:${(d.inc/max*90)}px" title="Income: ${fmt(d.inc)}"></div>
+        <div class="bar exp" style="height:${(d.exp/max*90)}px" title="Expense: ${fmt(d.exp)}"></div>
+      </div>
+      <div class="bar-label">${d.m}</div>
+    </div>`).join('');
+}
+
+function renderReport() {
+  const cats = {};
+  transactions.forEach(t => {
+    if (!cats[t.type]) cats[t.type] = {};
+    cats[t.type][t.cat] = (cats[t.type][t.cat]||0) + t.amount;
+  });
+  ['income','expense'].forEach(type => {
+    const id = type === 'income' ? 'income-cats' : 'expense-cats';
+    const el = document.getElementById(id);
+    const data = cats[type] || {};
+    const total = Object.values(data).reduce((a,v)=>a+v,0)||1;
+    el.innerHTML = Object.entries(data).sort((a,b)=>b[1]-a[1]).map(([cat,val])=>`
+      <div class="cat-row">
+        <div>
+          <div>${cat}</div>
+          <div class="cat-bar-wrap"><div class="cat-bar-fill" style="width:${(val/total*100).toFixed(0)}%;background:${type==='income'?'var(--income)':'var(--expense)'}"></div></div>
+        </div>
+        <div style="color:${type==='income'?'var(--income)':'var(--expense)'};font-weight:600;">${fmt(val)}</div>
+      </div>`).join('') || '<div style="color:var(--muted);font-size:13px;">कोई data नहीं</div>';
+  });
+}
+
+// Invoice
+let invItems = [{desc:'', qty:1, rate:0}];
+
+function renderInvItems() {
+  const el = document.getElementById('inv-items-list');
+  el.innerHTML = invItems.map((item,i)=>`
+    <div style="display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:8px;margin-bottom:8px;">
+      <input class="form-input" placeholder="Item description" value="${item.desc}" oninput="invItems[${i}].desc=this.value;calcInv()" />
+      <input class="form-input" type="number" placeholder="Qty" value="${item.qty}" oninput="invItems[${i}].qty=+this.value;calcInv()" />
+      <input class="form-input" type="number" placeholder="Rate ₹" value="${item.rate||''}" oninput="invItems[${i}].rate=+this.value;calcInv()" />
+      <button onclick="removeItem(${i})" style="background:rgba(255,107,107,0.15);border:1px solid var(--expense);color:var(--expense);border-radius:8px;padding:0 12px;cursor:pointer;font-size:16px;">×</button>
+    </div>`).join('');
+  calcInv();
+}
+
+function addInvItem() { invItems.push({desc:'',qty:1,rate:0}); renderInvItems(); }
+function removeItem(i) { invItems.splice(i,1); if(!invItems.length) invItems=[{desc:'',qty:1,rate:0}]; renderInvItems(); }
+
+function calcInv() {
+  const sub = invItems.reduce((a,it)=>a+(it.qty*it.rate),0);
+  const gst = sub*0.18;
+  document.getElementById('inv-sub').textContent = fmt(sub);
+  document.getElementById('inv-gst').textContent = fmt(gst);
+  document.getElementById('inv-total').textContent = fmt(sub+gst);
+}
+
+function printInvoice() {
+  const from = document.getElementById('inv-from').value || 'Your Business';
+  const to = document.getElementById('inv-to').value || 'Client';
+  const no = document.getElementById('inv-no').value || 'INV-001';
+  const date = document.getElementById('inv-date').value || new Date().toISOString().split('T')[0];
+  const sub = invItems.reduce((a,it)=>a+(it.qty*it.rate),0);
+  const gst = sub*0.18;
+  const win = window.open('','_blank');
+  win.document.write(`<html><head><title>Invoice ${no}</title>
+  <style>body{font-family:Arial;padding:40px;max-width:700px;margin:auto}h1{color:#00d4aa}table{width:100%;border-collapse:collapse;margin:20px 0}th{background:#f5f5f5;padding:10px;text-align:left}td{padding:10px;border-bottom:1px solid #eee}.total{text-align:right;margin-top:16px}@media print{button{display:none}}</style>
+  </head><body>
+  <div style="display:flex;justify-content:space-between">
+    <div><h1>INVOICE</h1><p style="color:#666">Invoice No: ${no}<br>Date: ${date}</p></div>
+    <div style="text-align:right"><strong>${from}</strong></div>
+  </div>
+  <p><strong>Bill To:</strong><br>${to}</p>
+  <table><tr><th>Description</th><th>Qty</th><th>Rate</th><th>Amount</th></tr>
+  ${invItems.map(it=>`<tr><td>${it.desc}</td><td>${it.qty}</td><td>${fmt(it.rate)}</td><td>${fmt(it.qty*it.rate)}</td></tr>`).join('')}
+  </table>
+  <div class="total">
+    <p>Subtotal: ${fmt(sub)}</p>
+    <p>GST (18%): ${fmt(gst)}</p>
+    <h3>Total: ${fmt(sub+gst)}</h3>
+  </div>
+  <button onclick="window.print()" style="margin-top:20px;padding:10px 20px;background:#00d4aa;color:#000;border:none;border-radius:6px;cursor:pointer;font-size:15px">🖨️ Print</button>
+  </body></html>`);
+  win.document.close();
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2500);
+}
+
+// Init
+document.getElementById('txn-date').value = new Date().toISOString().split('T')[0];
+document.getElementById('inv-date').value = new Date().toISOString().split('T')[0];
+renderAll();
+renderInvItems();
+</script>
+</body>
+</html>
